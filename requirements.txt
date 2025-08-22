@@ -1,0 +1,6 @@
+fastapi
+uvicorn
+gtts
+deep-translator
+pydantic
+python-multipart
