@@ -6,9 +6,8 @@ from typing import Optional
 from fastapi import FastAPI, Response, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-
+import requests
 from gtts import gTTS
-from deep_translator import GoogleTranslator
 
 app = FastAPI(title="RU↔EN Translate & TTS")
 
@@ -32,29 +31,28 @@ class TranslateIn(BaseModel):
 
 # --- Вспомогательные функции ---
 def pick_target_lang(text: str, target: Optional[str]) -> str:
-    """
-    Определяет целевой язык для перевода.
-    Если target указан (en/ru), возвращаем его.
-    Иначе: если текст на русском — en, иначе — ru
-    """
     tgt = (target or "").lower()
     if tgt in ("en", "ru"):
         return tgt
 
-    # Автоопределение через deep-translator
+    # Автоопределение через LibreTranslate
     try:
-        detected = GoogleTranslator(source='auto', target='en').detect(text)
-        # detected может вернуть 'ru' или 'en'
-        return "en" if detected.startswith("ru") else "ru"
+        resp = requests.post(
+            "https://libretranslate.com/detect",
+            data={"q": text}
+        ).json()
+        detected = resp[0]["language"]
+        return "en" if detected == "ru" else "ru"
     except Exception:
         return "en"
 
 def translate_text(text: str, target: str) -> str:
-    """
-    Перевод текста на target язык с помощью deep-translator
-    """
     try:
-        return GoogleTranslator(source='auto', target=target).translate(text)
+        resp = requests.post(
+            "https://libretranslate.com/translate",
+            data={"q": text, "source": "auto", "target": target, "format": "text"}
+        ).json()
+        return resp["translatedText"]
     except Exception as e:
         raise RuntimeError(f"Translation failed: {e}")
 
