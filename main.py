@@ -1,3 +1,4 @@
+# main.py
 import random
 import datetime
 from io import BytesIO
@@ -29,30 +30,33 @@ class TranslateIn(BaseModel):
     text: str
     target_lang: Optional[str] = None  # "en"|"ru"
 
+# --- Аргос LibreTranslate ---
+LIBRE_URL = "https://translate.argosopentech.com/translate"
+DETECT_URL = "https://translate.argosopentech.com/detect"
+
 # --- Вспомогательные функции ---
+def detect_lang(text: str) -> str:
+    try:
+        res = requests.post(DETECT_URL, json={"q": text}).json()
+        # res = [{"language": "ru", "confidence": 1}]
+        if isinstance(res, list) and res:
+            return res[0].get("language", "en")
+    except Exception:
+        pass
+    return "en"
+
 def pick_target_lang(text: str, target: Optional[str]) -> str:
     tgt = (target or "").lower()
     if tgt in ("en", "ru"):
         return tgt
-
-    # Автоопределение через LibreTranslate
-    try:
-        resp = requests.post(
-            "https://libretranslate.com/detect",
-            data={"q": text}
-        ).json()
-        detected = resp[0]["language"]
-        return "en" if detected == "ru" else "ru"
-    except Exception:
-        return "en"
+    src = detect_lang(text)
+    return "en" if src.startswith("ru") else "ru"
 
 def translate_text(text: str, target: str) -> str:
+    payload = {"q": text, "source": "auto", "target": target, "format": "text"}
     try:
-        resp = requests.post(
-            "https://libretranslate.com/translate",
-            data={"q": text, "source": "auto", "target": target, "format": "text"}
-        ).json()
-        return resp["translatedText"]
+        res = requests.post(LIBRE_URL, json=payload).json()
+        return res.get("translatedText", "")
     except Exception as e:
         raise RuntimeError(f"Translation failed: {e}")
 
